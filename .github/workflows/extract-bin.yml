@@ -1,4 +1,4 @@
-name: Extract BIN Files
+name: Extract
 
 on:
   push:
@@ -8,7 +8,7 @@ on:
 
 jobs:
   extract:
-    name: Extract BIN Files
+    name: Extract BIN Firmware
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -21,19 +21,36 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y binwalk
+          sudo apt-get install -y binwalk squashfs-tools cramfsprogs
 
-      - name: Extract BIN files
+      - name: Extract BINs
         run: |
+          mkdir -p extracted_bins
           for bin_file in $(find . -type f -name "*.bin"); do
-            out_dir="extracted_bins/$(dirname "$bin_file")/$(basename "$bin_file" .bin)"
+            bin_name=$(basename "$bin_file" .bin)
+            out_dir="extracted_bins/$bin_name"
             mkdir -p "$out_dir"
-            binwalk -e "$bin_file" -C "$out_dir"
+            binwalk -e --directory="$out_dir" "$bin_file"
+            
+            # Extract ROMFS and CRAMFS
+            for fs in $(find "$out_dir" -type f \( -name "*.romfs" -o -name "*.cramfs" \)); do
+              fs_name=$(basename "$fs" | sed 's/\..*$//')
+              fs_dir="$out_dir/$fs_name"
+              mkdir -p "$fs_dir"
+              
+              if [[ "$fs" == *.romfs ]]; then
+                # ROMFS mount
+                sudo mount -o loop "$fs" "$fs_dir" || true
+              elif [[ "$fs" == *.cramfs ]]; then
+                # CRAMFS extract
+                sudo cramfsck -x "$fs_dir" "$fs"
+              fi
+            done
           done
 
-      - name: Upload extracted folders as artifacts
+      - name: Upload organized artifacts
         uses: actions/upload-artifact@v4
         with:
           name: extracted_bins
-          path: extracted_bins/**/
+          path: extracted_bins/**
           retention-days: 7

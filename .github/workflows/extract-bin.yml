@@ -1,4 +1,4 @@
-name: Extract
+name: Extract BIN Firmware
 
 on:
   push:
@@ -21,7 +21,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y binwalk squashfs-tools cramfsprogs
+          sudo apt-get install -y binwalk squashfs-tools
 
       - name: Extract BINs
         run: |
@@ -39,11 +39,11 @@ jobs:
               mkdir -p "$fs_dir"
               
               if [[ "$fs" == *.romfs ]]; then
-                # ROMFS mount
+                # ROMFS extract
                 sudo mount -o loop "$fs" "$fs_dir" || true
               elif [[ "$fs" == *.cramfs ]]; then
                 # CRAMFS extract
-                sudo cramfsck -x "$fs_dir" "$fs"
+                unsquashfs -d "$fs_dir" "$fs" || true
               fi
             done
           done

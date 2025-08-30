@@ -1,0 +1,39 @@
+name: Extract BIN Files
+
+on:
+  push:
+    paths:
+      - '**.bin'
+  workflow_dispatch:
+
+jobs:
+  extract:
+    name: Extract BIN Files
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y binwalk
+
+      - name: Extract BIN files
+        run: |
+          for bin_file in $(find . -type f -name "*.bin"); do
+            out_dir="extracted_bins/$(dirname "$bin_file")/$(basename "$bin_file" .bin)"
+            mkdir -p "$out_dir"
+            binwalk -e "$bin_file" -C "$out_dir"
+          done
+
+      - name: Upload extracted folders as artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: extracted_bins
+          path: extracted_bins/**/
+          retention-days: 7
